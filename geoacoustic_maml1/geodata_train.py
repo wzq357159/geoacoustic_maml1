@@ -17,6 +17,8 @@ def mean_confidence_interval(mse_avg, confidence=0.95):
     return m, h
 
 
+
+
 def main():
     np.set_printoptions(threshold=np.inf)
     torch.manual_seed(222)
@@ -42,6 +44,8 @@ def main():
     maml = Meta(args, config).to(device)
 
     testdata = np.zeros((12, args.update_step_test + 1))
+    testy = np.zeros((12, 20, args.update_step_test + 1, 50))
+    testy_act = np.zeros((12, 20, 50))
     supportdata = np.zeros((40, args.update_step))
     querydata = np.zeros((40, args.update_step + 1))
 
@@ -55,13 +59,22 @@ def main():
 
     db_test_ini = DataLoader(geo_test, 1, shuffle=True, num_workers=0, pin_memory=True)
     mse_all_test = []
+    testy_a = []
+    testy_act_a = []
     for x_spt, y_spt, x_qry, y_qry in db_test_ini:
         x_spt, y_spt, x_qry, y_qry = x_spt.squeeze(0).to(device), y_spt.squeeze(0).to(device), \
             x_qry.squeeze(0).to(device), y_qry.squeeze(0).to(device)
-        mse_avg = maml.finetuning(x_spt, y_spt, x_qry, y_qry)
+        mse_avg, y_q_out = maml.finetuning(x_spt, y_spt, x_qry, y_qry)
         mse_all_test.append(mse_avg)
+        testy_a.append(y_q_out)
+        testy_act_a.append(list(map((lambda p: p.cpu().detach().numpy()), y_qry)))
     mse_avg = np.array(mse_all_test).mean(axis=0).astype(np.float32)
+    testy_b = np.array(testy_a)
+    testy_act_b = np.array(testy_act_a)
+
     testdata[0] = mse_avg
+    testy[0] = testy_b
+    testy_act[0] = testy_act_b
     print('Initial Test mse:', mse_avg)
 
     supportdata_num = 0
@@ -83,20 +96,30 @@ def main():
         if step % 39 == 0:  # evaluation
             db_test = DataLoader(geo_test, 1, shuffle=True, num_workers=0, pin_memory=True)
             mse_all_test = []
+            testy_a = []
+            testy_act_a = []
             for x_spt, y_spt, x_qry, y_qry in db_test:
                 x_spt, y_spt, x_qry, y_qry = x_spt.squeeze(0).to(device), y_spt.squeeze(0).to(device), \
                     x_qry.squeeze(0).to(device), y_qry.squeeze(0).to(device)
-                mse_avg = maml.finetuning(x_spt, y_spt, x_qry, y_qry)
+                mse_avg, y_q_out = maml.finetuning(x_spt, y_spt, x_qry, y_qry)
                 mse_all_test.append(mse_avg)
+                testy_a.append(y_q_out)
+                testy_act_a.append(list(map((lambda p: p.cpu().detach().numpy()), y_qry)))
             mse_avg = np.array(mse_all_test).mean(axis=0).astype(np.float32)
+            testy_b = np.array(testy_a)
+            testy_act_b = np.array(testy_act_a)
 
             testdata[testdata_num] = mse_avg
+            testy[testdata_num] = testy_b
+            testy_act[testdata_num] = testy_act_b
             testdata_num += 1
 
             print('Test mse:', mse_avg)
     np.savetxt('supportdata.csv', supportdata, delimiter=',')
     np.savetxt('querydata.csv', querydata, delimiter=',')
     np.savetxt('testdata.csv', testdata, delimiter=',')
+    np.save('testy.npy', testy)
+    np.save('testy_act.npy', testy_act)
 
 
 if __name__ == '__main__':

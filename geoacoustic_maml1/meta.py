@@ -125,6 +125,7 @@ class Meta(nn.Module):
         querysz = x_qry.size(0)
 
         losses_q = [0 for _ in range(self.update_step_test + 1)]
+        y_q = [[0 for _ in range(50)] for _ in range(self.update_step_test + 1)]
 
 
         # in order to not ruin the state of running_mean/variance and bn_weight/bias
@@ -145,6 +146,7 @@ class Meta(nn.Module):
             # [setsz]
             loss_q = F.mse_loss(logits_q.squeeze(1), y_qry)
             losses_q[0] += loss_q
+            y_q[0] = logits_q.squeeze(1)
 
         # this is the loss and accuracy after the first update
         with torch.no_grad():
@@ -153,6 +155,7 @@ class Meta(nn.Module):
             # [setsz]
             loss_q = F.mse_loss(logits_q.squeeze(1), y_qry)
             losses_q[1] += loss_q
+            y_q[1] = logits_q.squeeze(1)
 
         for k in range(1, self.update_step_test):
             # 1. run the i-th task and compute loss for k=1~K-1
@@ -168,11 +171,16 @@ class Meta(nn.Module):
             # loss_q will be overwritten and just keep the loss_q on last update step.
             loss_q = F.mse_loss(logits_q.squeeze(1), y_qry)
             losses_q[k + 1] += loss_q
+            y_q[k+1] = logits_q.squeeze(1)
 
 
         del net
         out_q = list(map((lambda p: p.cpu().detach()), losses_q))
         mse_avg = np.array(out_q)
+        out_y_q = list(map((lambda p: p.cpu().detach().numpy()), y_q))
+        # y_q_out = np.empty((self.update_step_test + 1), dtype=object)
+        # y_q_out[:] = out_y_q
+        y_q_out = np.array(out_y_q)
 
 
-        return mse_avg
+        return mse_avg, y_q_out
