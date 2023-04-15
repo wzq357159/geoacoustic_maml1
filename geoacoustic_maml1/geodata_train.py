@@ -54,8 +54,8 @@ def main():
     print(maml)
     print('Total trainable tensors:', num)
 
-    geo = geodata(path='./finalgeoall1.csv', batchsz=400, setsz=350, querysz=50, param='c_s')
-    geo_test = geodata(path='./finalgeoall1.csv', batchsz=20, setsz=350, querysz=50, param='c_s')
+    geo = geodata(path='./finalgeoall1.csv', batchsz=400, setsz=350, querysz=50, param='alpha')
+    geo_test = geodata(path='./finalgeoall1.csv', batchsz=20, setsz=350, querysz=50, param='alpha')
 
     db_test_ini = DataLoader(geo_test, 1, shuffle=True, num_workers=0, pin_memory=True)
     mse_all_test = []
